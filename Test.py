@@ -4,8 +4,8 @@ from ultralytics import YOLO
 model = YOLO('yolo11n.pt')
 print(model.names)
 webcamera = cv2.VideoCapture(0)
-# webcamera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-# webcamera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+webcamera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+webcamera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 while True:
     success, frame = webcamera.read()
@@ -18,7 +18,8 @@ while True:
     # Perform detection or tracking
     results = model.track(
         source=frame,   # frame to run inference on
-        conf=0.6,       # confidence threshold
+        classes=[0, 56],
+        conf=0.2,       # confidence threshold
         imgsz=480       # image size for inference
     )
 
