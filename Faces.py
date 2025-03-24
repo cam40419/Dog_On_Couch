@@ -1,64 +1,98 @@
 import face_recognition
 import cv2
-import sys
+import numpy as np
 
-# 1. Load and encode the known face
-known_image = face_recognition.load_image_file("Cameron.jpg")
-known_encodings_list = face_recognition.face_encodings(known_image)
-if len(known_encodings_list) == 0:
-    print("Error: No face found in 'Cameron.jpg'. Please use a different image.")
-    sys.exit(1)
+# This is a demo of running face recognition on live video from your webcam. It's a little more complicated than the
+# other example, but it includes some basic performance tweaks to make things run a lot faster:
+#   1. Process each video frame at 1/4 resolution (though still display it at full resolution)
+#   2. Only detect faces in every other frame of video.
 
-known_encoding = known_encodings_list[0]
-known_names = ["Me"]
-known_encodings = [known_encoding]
+# PLEASE NOTE: This example requires OpenCV (the `cv2` library) to be installed only to read from your webcam.
+# OpenCV is *not* required to use the face_recognition library. It's only required if you want to run this
+# specific demo. If you have trouble installing it, try any of the other demos that don't require it instead.
 
-# 2. Initialize webcam
-webcamera = cv2.VideoCapture(0)
-if not webcamera.isOpened():
-    print("Error: Could not open webcam.")
-    sys.exit(1)
+# Get a reference to webcam #0 (the default one)
+video_capture = cv2.VideoCapture(0)
 
-# Optionally set camera resolution
-webcamera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-webcamera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+# Load a sample picture and learn how to recognize it.
+cameron_image = face_recognition.load_image_file("Cameron.jpg")
+cameron_face_encoding = face_recognition.face_encodings(cameron_image)[0]
+
+# Create arrays of known face encodings and their names
+known_face_encodings = [
+    cameron_face_encoding
+]
+known_face_names = [
+    "Me"
+]
+
+# Initialize some variables
+face_locations = []
+face_encodings = []
+face_names = []
+process_this_frame = True
 
 while True:
-    success, frame = webcamera.read()
-    if not success:
-        print("Warning: Failed to read from webcam. Exiting...")
-        break
+    # Grab a single frame of video
+    ret, frame = video_capture.read()
 
-    # Convert BGR (OpenCV default) to RGB (face_recognition expects RGB)
-    rgb_frame = frame[:, :, ::-1]
+    # Only process every other frame of video to save time
+    if process_this_frame:
+        # Resize frame of video to 1/4 size for faster face recognition processing
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
 
-    # 3. Detect face locations
-    face_locations = face_recognition.face_locations(rgb_frame, model="hog")
-    
-    # 4. Encode each face found in the frame
-    face_encs = face_recognition.face_encodings(rgb_frame, face_locations)
-
-    # 5. Compare against known encodings
-    for (top, right, bottom, left), face_enc in zip(face_locations, face_encs):
-        matches = face_recognition.compare_faces(known_encodings, face_enc, tolerance=0.6)
-        name = "Unknown"
+        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
+        rgb_small_frame = small_frame[:, :, ::-1]
         
-        if True in matches:
-            match_idx = matches.index(True)
-            name = known_names[match_idx]
+        # Find all the faces and face encodings in the current frame of video
+        face_locations = face_recognition.face_locations(rgb_small_frame)
+        face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
-        # Draw bounding box and label on the video frame
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-        cv2.putText(frame, name, (left, top - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
+        face_names = []
+        for face_encoding in face_encodings:
+            # See if the face is a match for the known face(s)
+            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+            name = "Unknown"
 
-    # 6. Display the annotated video frame
-    cv2.imshow('Webcam', frame)
+            # # If a match was found in known_face_encodings, just use the first one.
+            # if True in matches:
+            #     first_match_index = matches.index(True)
+            #     name = known_face_names[first_match_index]
 
-    # Press 'q' to exit
+            # Or instead, use the known face with the smallest distance to the new face
+            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+            best_match_index = np.argmin(face_distances)
+            if matches[best_match_index]:
+                name = known_face_names[best_match_index]
+
+            face_names.append(name)
+
+    process_this_frame = not process_this_frame
+
+
+    # Display the results
+    for (top, right, bottom, left), name in zip(face_locations, face_names):
+        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+        top *= 4
+        right *= 4
+        bottom *= 4
+        left *= 4
+
+        # Draw a box around the face
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+
+        # Draw a label with a name below the face
+        cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+        font = cv2.FONT_HERSHEY_DUPLEX
+        cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+
+    # Display the resulting image
+    cv2.imshow('Video', frame)
+
+    # Hit 'q' on the keyboard to quit!
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Cleanup
-webcamera.release()
+# Release handle to the webcam
+video_capture.release()
 cv2.destroyAllWindows()
