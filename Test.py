@@ -1,7 +1,12 @@
 import cv2
 from ultralytics import YOLO
 
-model = YOLO('yolo11n.pt')
+# Load a model
+model = YOLO("yolo11n-pose.pt")
+
+# Train the model
+results = model.train(data="dog-pose.yaml", epochs=100, imgsz=640)
+
 print(model.names)
 webcamera = cv2.VideoCapture(0)
 webcamera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
@@ -18,7 +23,7 @@ while True:
     # Perform detection or tracking
     results = model.track(
         source=frame,   # frame to run inference on
-        classes=[0, 56],
+        classes=[0, 15, 16, 56, 57],
         conf=0.2,       # confidence threshold
         imgsz=480       # image size for inference
     )
