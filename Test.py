@@ -25,8 +25,8 @@ while True:
         source=frame,   # frame to run inference on
         classes=[0, 15, 16, 56, 57],
         conf=0.2,       # confidence threshold
-        imgsz=480       # image size for inference
     )
+
 
     # results is a list of 'Results' objects, one per image/frame.
     # In a real-time loop, it's typically just 1 item (results[0]).
